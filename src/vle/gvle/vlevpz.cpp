@@ -4046,6 +4046,11 @@ void vleVpz::configureModel(QDomNode model, QDomNode dynamic,
 
     modele.replaceChild(in, mVdo->obtainChild(modele,"in"));
     modele.replaceChild(out, mVdo->obtainChild(modele,"out"));
+
+    emit dynamicsUpdated();
+    emit observablesUpdated();
+    emit conditionsUpdated();
+    emit modelsUpdated();
 }
 
 }}//namespaces
