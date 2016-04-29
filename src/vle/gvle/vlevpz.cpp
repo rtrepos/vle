@@ -1590,7 +1590,8 @@ vleVpz::addCondPortToDoc(const QString& condName, const QString& portName)
 void
 vleVpz::rmConditionToDoc(const QString& condName)
 {
-    if (not existCondFromDoc(condName)) {
+    if (not existCondFromDoc(condName) or
+            condName == "simulation_engine") {
         return;
     }
     bool bigSnapshotDone = false;
