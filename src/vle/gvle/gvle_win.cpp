@@ -996,10 +996,12 @@ gvle_win::onTreeDblClick(QModelIndex index)
     if (relPath == "Description.txt") {
         newPanel = new DefaultCppPanel();
     }else if (selectedFileInfo.suffix() == "vpz") {
-        //TODO check if a plugin
-        newPanel = new DefaultVpzPanel();
-
-
+        QString plug = getVpzPlugin(relPath);
+        if (plug == "") {
+            newPanel = new DefaultVpzPanel();
+        } else {
+            newPanel = mGvlePlugins.newInstanceMainPanelVpzPlugin(plug);
+        }
     } else if ((selectedFileInfo.suffix() == "cpp") or
                (selectedFileInfo.suffix() == "hpp")){
         QString plug = getCppPlugin(relPath);
@@ -1096,6 +1098,17 @@ gvle_win::onCustomContextMenu(const QPoint &point)
             action->setProperty("outPlugin", pluginName);
         }
     }
+    if (insideVpz(index)) {
+        ctxMenu.addSeparator();
+        action = ctxMenu.addAction(tr("Use") + " " + "Default");
+        action->setProperty("vpzPlugin", "Default");
+        QStringList plugList = mGvlePlugins.getMainPanelVpzPluginsList();
+        for (int i =0; i<plugList.size(); i++) {
+            QString pluginName = plugList.at(i);
+            action = ctxMenu.addAction(tr("Use") + " " + pluginName);
+            action->setProperty("vpzPlugin", pluginName);
+        }
+    }
 
     QAction* selectedItem = ctxMenu.exec(globalPos);
     if (selectedItem) {
@@ -1136,27 +1149,52 @@ gvle_win::onCustomContextMenu(const QPoint &point)
             setRightWidget(newPanel->rightWidget());
             } else {
                 plugName = selectedItem->property("outPlugin");
-                if (not plugName.isValid()) {
-                    return;
+                if (plugName.isValid()) {
+
+                    PluginMainPanel* newPanel = mGvlePlugins.newInstanceMainPanelOutPlugin(
+                        plugName.toString());
+
+                    QObject::connect(newPanel, SIGNAL(undoAvailable(bool)),
+                                     this, SLOT(onUndoAvailable(bool)));
+
+                    QString relPath = getRelPathFromFSIndex(index);
+
+                    newPanel->init(relPath, &mCurrPackage, mLogger, &mGvlePlugins);
+
+                    int n = ui->tabWidget->addTab(newPanel->leftWidget(), relPath);
+                    bool oldBlock = ui->tabWidget->blockSignals(true);
+                    ui->tabWidget->setCurrentIndex(n);
+                    ui->tabWidget->widget(n)->setProperty("relPath",relPath);
+                    ui->tabWidget->blockSignals(oldBlock);
+
+                    mPanels.insert(relPath,newPanel);
+                } else {
+                    plugName = selectedItem->property("vpzPlugin");
+                    PluginMainPanel* newPanel;
+                    if (not plugName.isValid()) {
+                        return;
+                    } else if (plugName.toString() == "Default") {
+                        newPanel = new DefaultVpzPanel();
+                    } else {
+                        newPanel = mGvlePlugins.newInstanceMainPanelVpzPlugin(
+                            plugName.toString());
+                    }
+
+                        QObject::connect(newPanel, SIGNAL(undoAvailable(bool)),
+                                         this, SLOT(onUndoAvailable(bool)));
+
+                        QString relPath = getRelPathFromFSIndex(index);
+
+                        newPanel->init(relPath, &mCurrPackage, mLogger, &mGvlePlugins);
+
+                        int n = ui->tabWidget->addTab(newPanel->leftWidget(), relPath);
+                        bool oldBlock = ui->tabWidget->blockSignals(true);
+                        ui->tabWidget->setCurrentIndex(n);
+                        ui->tabWidget->widget(n)->setProperty("relPath",relPath);
+                        ui->tabWidget->blockSignals(oldBlock);
+
+                    mPanels.insert(relPath,newPanel);
                 }
-
-                PluginMainPanel* newPanel = mGvlePlugins.newInstanceMainPanelOutPlugin(
-                    plugName.toString());
-
-                QObject::connect(newPanel, SIGNAL(undoAvailable(bool)),
-                                 this, SLOT(onUndoAvailable(bool)));
-
-                QString relPath = getRelPathFromFSIndex(index);
-
-                newPanel->init(relPath, &mCurrPackage, mLogger, &mGvlePlugins);
-
-                int n = ui->tabWidget->addTab(newPanel->leftWidget(), relPath);
-                bool oldBlock = ui->tabWidget->blockSignals(true);
-                ui->tabWidget->setCurrentIndex(n);
-                ui->tabWidget->widget(n)->setProperty("relPath",relPath);
-                ui->tabWidget->blockSignals(oldBlock);
-
-                mPanels.insert(relPath,newPanel);
             }
         }
     }
@@ -1177,6 +1215,15 @@ gvle_win::insideOut(QModelIndex index)
     QString filePath = mProjectFileSytem->filePath(index);
     QString pkgPath = QString(mCurrPackage.getDir(utils::PKG_SOURCE).c_str());
     QFile srcFile(pkgPath + "/out");
+    return filePath.indexOf(srcFile.fileName()) == 0;
+}
+
+bool
+gvle_win::insideVpz(QModelIndex index)
+{
+    QString filePath = mProjectFileSytem->filePath(index);
+    QString pkgPath = QString(mCurrPackage.getDir(utils::PKG_SOURCE).c_str());
+    QFile srcFile(pkgPath + "/exp");
     return filePath.indexOf(srcFile.fileName()) == 0;
 }
 
@@ -1285,6 +1332,25 @@ gvle_win::getOutPlugin(QString relPath)
     QDomElement docElem = dom.documentElement();
     QDomNode srcPluginNode = dom.elementsByTagName("outPlugin").item(0);
     return srcPluginNode.attributes().namedItem("name").nodeValue();
+}
+
+QString
+gvle_win::getVpzPlugin(QString relPath)
+{
+    QString metaPath = QString(mCurrPackage.getDir(utils::PKG_SOURCE).c_str());
+    metaPath += "/metadata/"+relPath;
+    metaPath.replace(".vpz",".vm");
+    QFile file(metaPath);
+    if (not QFile(metaPath).exists()) {
+        return "";
+    }
+    QDomDocument dom("vle_project_metadata");
+    QXmlInputSource source(&file);
+    QXmlSimpleReader reader;
+    dom.setContent(&source, &reader);
+    QDomElement docElem = dom.documentElement();
+    QDomNode vpzPluginNode = dom.elementsByTagName("vpzPlugin").item(0);
+    return vpzPluginNode.attributes().namedItem("name").nodeValue();
 }
 
 void
@@ -1430,6 +1496,7 @@ gvle_win::onUndoAvailable(bool b)
 {
     QString relPath = getRelPathFromMainPanel(
             (PluginMainPanel*) QObject::sender());
+
     int i = getTabIndexFromRelPath(relPath);
     QString tabName;
     if (b) {
