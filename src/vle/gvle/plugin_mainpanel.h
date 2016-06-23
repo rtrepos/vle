@@ -50,6 +50,7 @@ public:
             Logger* log, gvle_plugins* plugs)               = 0;
     virtual QString canBeClosed()                           = 0;
     virtual void save()                                     = 0;
+    virtual void discard()                                  = 0;
     virtual PluginMainPanel* newInstance()                  = 0;
 signals:
     void rightWidgetChanged();
