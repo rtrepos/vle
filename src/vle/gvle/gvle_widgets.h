@@ -172,7 +172,7 @@ public:
     void mouseDoubleClickEvent(QMouseEvent* e);
     QString saved_value;
     QString id;
-    bool edit_on_dble_click;;
+    bool edit_on_dble_click;
 
 signals:
     void textUpdated(const QString& id, const QString& old,
@@ -227,7 +227,7 @@ public:
     };
 
 
-    value_stack         mValueStack;
+    value_stack mValueStack;
     QWidget* stack_buttons;
     QTableWidget* table;
     QWidget* resize_place;
@@ -235,8 +235,12 @@ public:
     VleSpinBox* resize_col;
     VlePushButton* resize;
     QString mId;
+    bool mLimited;
 
-    explicit VleValueWidget( QWidget *parent = 0);
+    /*
+     * @brief limited provide a limited mode
+     */
+    explicit VleValueWidget(QWidget *parent = 0, bool limited = false);
     ~VleValueWidget();
     void showCurrentValueDetail();
     void setId(const QString& id);
