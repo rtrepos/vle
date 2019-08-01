@@ -161,18 +161,18 @@ if (VLE_BOOST_INCLUDE_PATH AND VLE_BOOST_LIBRARIES_PATH)
  set (BOOST_INCLUDEDIR ${VLE_BOOST_INCLUDE_PATH})
 endif ()
 
-find_package(Boost COMPONENTS unit_test_framework thread filesystem system
+find_package(Boost COMPONENTS thread filesystem system
   chrono date_time regex program_options serialization mpi)
 
 if (NOT Boost_FOUND)
   message(STATUS "Boost is not founded. Try without serialization mpi")
 
-  find_package(Boost COMPONENTS unit_test_framework thread filesystem system
+  find_package(Boost COMPONENTS thread filesystem system
     chrono date_time regex program_options)
 
   if (NOT Boost_FOUND)
     message(STATUS "Boost is not founded. Try without serialization mpi chrono")
-    find_package(Boost COMPONENTS unit_test_framework thread filesystem system
+    find_package(Boost COMPONENTS thread filesystem system
       date_time regex program_options)
   endif ()
 endif ()
